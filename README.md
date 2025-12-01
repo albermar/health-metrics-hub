@@ -19,3 +19,4 @@ Based on daily metrics such as steps, calories consumed and burned, weight, body
 - Dashboard built with Streamlit, deployed on Hugging Face Spaces, consuming the public API hosted on Render
 - CI setup with GitHub Actions (automated test execution on every push/pull request)
 - Work across multiple environments (laptop, desktop, iPad, GitHub Codespaces) to practice consistent Git workflows and terminal-based Git operations
+
