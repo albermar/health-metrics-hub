@@ -22,10 +22,10 @@ Based on daily metrics such as steps, calories consumed and burned, weight, body
 
 Defines what the system does (not how).
 
-Core business entities: DailyInput, DailyKPI
-Interfaces 
-    Repository Ports: DailyMetricsRepository, DailyKPIRepository
-    File storage: InputFileStorage 
+* Core business entities: DailyInput, DailyKPI
+* Interfaces
+    * Ports Repository: DailyMetricsRepository, DailyKPIRepository
+    * Ports File storage: InputFileStorage 
 
 ### Business
 

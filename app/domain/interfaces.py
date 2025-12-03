@@ -28,7 +28,7 @@ class OutputRepository_Interface(ABC):
         Port for saving and fetching DailyKPIsOutput entities.
         """
         @abstractmethod
-        def save_output(self, output_data: DailyKPIsOutput) -> None :
+        def save_output(self, output_data: list[DailyKPIsOutput]) -> None :
             raise NotImplementedError
         
         @abstractmethod
