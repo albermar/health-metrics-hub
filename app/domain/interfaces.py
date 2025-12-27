@@ -12,10 +12,10 @@ from abc import ABC, abstractmethod #-> Compile-time protection. Prevents instan
 #-----------------------------------------------------------------------------------------
 class InputRepository_Interface(ABC):
         """
-        Port for saving and fetching DailyMetricsInput entities.
+        Port for saving -> and fetching <- DailyMetricsInput entities.
         """
         @abstractmethod
-        def save_input(self, input_data: DailyMetricsInput) -> None :
+        def save_input(self, input_data: list[DailyMetricsInput]) -> None :
             raise NotImplementedError
         
         @abstractmethod
@@ -25,7 +25,7 @@ class InputRepository_Interface(ABC):
 
 class OutputRepository_Interface(ABC):
         """
-        Port for saving and fetching DailyKPIsOutput entities.
+        Port for saving -> and fetching <- DailyKPIsOutput entities.
         """
         @abstractmethod
         def save_output(self, output_data: list[DailyKPIsOutput]) -> None :

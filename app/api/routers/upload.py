@@ -3,5 +3,5 @@ from app.api.routers import upload, kpis
 
 router = APIRouter()
 
-router.include_router
+
 
