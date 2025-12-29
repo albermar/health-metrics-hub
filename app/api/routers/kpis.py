@@ -11,7 +11,7 @@ router = APIRouter()
 @router.get("/kpis/", response_model = list[DailyKPIsResponse])
 async def get_kpis(
     start_date: datetime = Query(..., description = "Start date in YYYY-MM-DD format"),
-    end_date: datetime = Query(..., description = "End date in YYYY-MM-DD format")
+    end_date:   datetime = Query(..., description = "End date in YYYY-MM-DD format")
     ):
     """
     Retrieve KPIs for the specified date range.

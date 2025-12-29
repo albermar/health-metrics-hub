@@ -1,6 +1,6 @@
 # System for analyzing health habits and physical performance.
 
-Based on daily metrics such as steps, calories consumed and burned, weight, body measurements, and sleep, the system will compute key fitness KPIs, trends, adherence levels and maybe other metrics and show it in a dashboard
+Using daily metrics (steps, calories in/out, weight, measurements, and sleep), the system computes fitness KPIs, trends, and adherence metrics, and displays them in a dashboard
 
 - *Backend*: it will receive data (via CSV), process it, compute KPIs using pandas, store it persistently in a PostgreSQL database, and expose endpoints for data retrieval.
 - *Visual dashboard*: it will display metrics, KPIs, and time-series insights through a clear and interactive interface, enabling users to visualize the evolution of their performance and health habits.
