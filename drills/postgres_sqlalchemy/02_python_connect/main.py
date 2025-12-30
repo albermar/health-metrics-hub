@@ -6,7 +6,7 @@ Reads it back
 Prints the result
 '''
 
-import psycopg
+import  
 
 DB_URL = "postgresql://alberto:supersecret@localhost:5432/health_drill"
 
