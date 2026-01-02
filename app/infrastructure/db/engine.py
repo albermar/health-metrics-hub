@@ -26,10 +26,10 @@ def _build_database_url() -> str:
     - Matches Docker/CI best practices
     """
     user = os.getenv("POSTGRES_USER", "alberto")
-    password = os.getenv("POSTGRES_PASSWORD", "supersecret")
+    password = os.getenv("POSTGRES_PASSWORD", "password1")
     host = os.getenv("POSTGRES_HOST", "localhost")
     port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "health_drill")
+    db = os.getenv("POSTGRES_DB", "project2db")
 
     return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
 
