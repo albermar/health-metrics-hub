@@ -21,20 +21,20 @@ class DailyKPIsOutput:
     neat_from_steps: float
     kcal_out_total: float
     balance_kcal: float
-    _balance_7d_average: float
+    balance_7d_average: float
     # Nutrition
     protein_per_kg: float
     protein_pct: float
     healthy_food_pct: float
     # Activity
     adherence_steps: int
-    _steps_7d_avg: float
-    _steps_slope: float
+    steps_7d_avg: float
+    steps_slope: float
     # Physiology
-    _weight_7d_avg: float
-    _weight_slope: float
+    weight_7d_avg: float
+    weight_slope: float
     kg_fat_loss: float
-    _waist_change_7d: float
+    waist_change_7d: float
     # Recovery
-    _sleep_7d_avg: float
-    _stress_7d_avg: float
+    sleep_7d_avg: float
+    stress_7d_avg: float

@@ -12,7 +12,10 @@ from datetime import date
 from typing import Optional
 
 from sqlalchemy import Date, Integer, Float, String, UniqueConstraint
+from sqlalchemy import DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
+
+from datetime import datetime
 
 from app.infrastructure.db.base import Base
 
@@ -47,17 +50,20 @@ neat_from_steps: float
 
 '''
 
+#nullable=True means that the column can be left empty (NULL) in the DB
+#nullable=False
 
 class DailyKPIORM(Base):
     __tablename__ = "daily_kpis"
     
-    id: Mapped[int]              = mapped_column(Integer, primary_key=True)
-    day: Mapped[date]            = mapped_column(Date, nullable=False)
-    neat_from_steps: Mapped[int] = mapped_column(Integer, nullable=False)
-    basal_spend: Mapped[float]     = mapped_column(Float, nullable=False)
-    balance_kcal: Mapped[float]     = mapped_column(Float, nullable=False)
-    computed_at: Mapped[date]     = mapped_column(Date, nullable=False)
-    _balance_7d_average: Mapped[float]    = mapped_column(Float, nullable=False)
+    id: Mapped[int]                = mapped_column(Integer,                 primary_key=True)
+    day: Mapped[date]              = mapped_column(Date,      nullable=False)
+    neat_from_steps: Mapped[int]   = mapped_column(Integer,   nullable=True)
+    basal_spend: Mapped[int]       = mapped_column(Integer,   nullable=True)
+    balance_kcal: Mapped[int]      = mapped_column(Integer,  nullable=True)    
+    balance_7d_average: Mapped[int]= mapped_column(Integer, nullable=True)
+    
+    computed_at: Mapped[datetime]  = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     __table_args__ = (
         UniqueConstraint("day", name="uq_daily_kpis_day"),
     )
