@@ -16,6 +16,51 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.db.base import Base
 
+'''
+Remember the KPI in entities:
+
+class DailyKPIsOutput: 
+    #Some KPI need older data to be calculated, so we mark them with _ prefix
+date: datetime
+    # Energy Balance
+basal_spend: float
+neat_from_steps: float
+    kcal_out_total: float
+    balance_kcal: float
+    _balance_7d_average: float
+    # Nutrition
+    protein_per_kg: float
+    protein_pct: float
+    healthy_food_pct: float
+    # Activity
+    adherence_steps: int
+    _steps_7d_avg: float
+    _steps_slope: float
+    # Physiology
+    _weight_7d_avg: float
+    _weight_slope: float
+    kg_fat_loss: float
+    _waist_change_7d: float
+    # Recovery
+    _sleep_7d_avg: float
+    _stress_7d_avg: float
+
+'''
+
+
+class DailyKPIORM(Base):
+    __tablename__ = "daily_kpis"
+    
+    id: Mapped[int]              = mapped_column(Integer, primary_key=True)
+    day: Mapped[date]            = mapped_column(Date, nullable=False)
+    neat_from_steps: Mapped[int] = mapped_column(Integer, nullable=False)
+    basal_spend: Mapped[float]     = mapped_column(Float, nullable=False)
+    balance_kcal: Mapped[float]     = mapped_column(Float, nullable=False)
+    computed_at: Mapped[date]     = mapped_column(Date, nullable=False)
+    _balance_7d_average: Mapped[float]    = mapped_column(Float, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("day", name="uq_daily_kpis_day"),
+    )
 
 class DailyInputORM(Base):
     """
@@ -28,26 +73,21 @@ class DailyInputORM(Base):
     __tablename__ = "daily_inputs"
 
     # Primary key (internal DB identity)
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
+    id: Mapped[int]                     = mapped_column(Integer,                primary_key=True)
     # Business key: one row per day (we enforce uniqueness)
-    day: Mapped[date] = mapped_column(Date, nullable=False)
-
+    day: Mapped[date]                   = mapped_column(Date,   nullable=False)
     # Example metrics (nullable=True because CSV may have missing values)
-    steps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    calories_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    steps: Mapped[Optional[int]]        = mapped_column(Integer, nullable=True)
+    calories_in: Mapped[Optional[int]]  = mapped_column(Integer, nullable=True)
     calories_out: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-
-    weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    sleep_hours: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-
+    weight_kg: Mapped[Optional[float]]  = mapped_column(Float,   nullable=True)
+    sleep_hours: Mapped[Optional[float]]= mapped_column(Float,   nullable=True)
     # Optional body measurements (example)
-    waist_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    chest_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    abdomen_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-
+    waist_cm: Mapped[Optional[float]]   = mapped_column(Float,   nullable=True)
+    chest_cm: Mapped[Optional[float]]   = mapped_column(Float,   nullable=True)
+    abdomen_cm: Mapped[Optional[float]] = mapped_column(Float,   nullable=True)
     # Optional notes / source tracking
-    source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    source: Mapped[Optional[str]]       = mapped_column(String(50), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("day", name="uq_daily_inputs_day"),

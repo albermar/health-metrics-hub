@@ -1,7 +1,7 @@
 from app.infrastructure.db.base import Base
-from app.infrastructure.db.engine import engine
+from app.infrastructure.db.engine import engine 
 
-from app.infrastructure.db import models
+import app.infrastructure.db.models
 
 def main() -> None:
     Base.metadata.create_all(bind=engine)
