@@ -104,17 +104,16 @@ class Postgres_OutputRepository(OutputRepository_Interface):
                 
                 for orm_row in orm_rows: #If empty this loop is skipped, no worries.
                     #map each orm_row to DailyKPIsOutput
-                    #Create a new domain entity. Question: do we have a constructor that accepts parameters? No, so we set attributes one by one.
-                    domain_entity = DailyKPIsOutput()
-                    # domain_entity.date is a datetime, but orm_row.day is a Mapped[date], so we need to convert it to datetime
-                    # date (YYYY-MM-DD)  →  datetime (YYYY-MM-DD HH:MM:SS TZ)                    
-                    domain_entity.date = datetime.combine(orm_row.day, time.min, tzinfo=timezone.utc) #is this ok? Yes, we set time to 00:00:00 and UTC timezone
-                    domain_entity.neat_from_steps = orm_row.neat_from_steps
-                    domain_entity.basal_spend = orm_row.basal_spend
-                    domain_entity.balance_kcal = orm_row.balance_kcal
-                    domain_entity.balance_7d_average = orm_row.balance_7d_average
+                    #Create a new domain entity. Question: do we have a constructor that accepts parameters? Yes, because we used decorator @dataclass, so:
+                    kpi = DailyKPIsOutput(
+                        date=datetime.combine(orm_row.day, time.min, tzinfo=timezone.utc),
+                        neat_from_steps=orm_row.neat_from_steps,
+                        basal_spend=orm_row.basal_spend,
+                        balance_kcal=orm_row.balance_kcal, 
+                        balance_7d_average=orm_row.balance_7d_average
+                    )             
                     #append to the list
-                    domain_entities.append(domain_entity)                
+                    domain_entities.append(kpi)                
                 #after the loop we may have a list of domain entities or an empty list if no rows found 
                            
             except Exception:
