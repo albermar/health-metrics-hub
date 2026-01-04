@@ -1,0 +1,10 @@
+{
+  "age_years": 30,
+  "height_cm": 180,
+  "sex": "male",
+  "balance_goal": -300,
+  "balance_tol": 100,
+  "protein_target_g_per_kg": 1.9,
+  "steps_goal": 10000,
+  "sleep_target_hours": 7
+}
