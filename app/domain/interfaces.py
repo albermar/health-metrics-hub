@@ -28,11 +28,11 @@ class OutputRepository_Interface(ABC):
         Port for saving -> and fetching <- DailyKPIsOutput entities.
         """
         @abstractmethod
-        def save_output(self, output_data: list[DailyKPIsOutput]) -> None :
+        def save_output(self, output_data: list[DailyKPIsOutput]) -> None : #receives a list of domain entities
             raise NotImplementedError
         
         @abstractmethod
-        def get_output(self, start: datetime, end: datetime) -> list[DailyKPIsOutput]:
+        def get_output(self, start: datetime, end: datetime) -> list[DailyKPIsOutput]: #returns a list of domain entities
             raise NotImplementedError
 
 
