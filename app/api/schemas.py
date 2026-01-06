@@ -1,30 +1,39 @@
 from pydantic import BaseModel
 from datetime import datetime
 
+from app.domain.entities import DailyKPIsOutput
+
 
 class DailyKPIsResponse(BaseModel):
-    #Some KPI need older data to be calculated, so we mark them with _ prefix
+    
     date: datetime
-    # Energy Balance
-    basal_spend: float
-    neat_from_steps: float
-    kcal_out_total: float
-    balance_kcal: float
-    _balance_7d_average: float
-    # Nutrition
-    protein_per_kg: float
-    protein_pct: float
-    healthy_food_pct: float
-    # Activity
-    adherence_steps: int
-    _steps_7d_avg: float
-    _steps_slope: float
-    # Physiology
-    _weight_7d_avg: float
-    _weight_slope: float
-    kg_fat_loss: float
-    _waist_change_7d: float
-    # Recovery
-    _sleep_7d_avg: float
-    _stress_7d_avg: float
 
+    # Energy / core
+    kcal_out_total: float | None = None
+    balance_kcal: float | None = None
+    balance_7d_average: float | None = None
+
+    # Nutrition
+    protein_per_kg: float | None = None
+    healthy_food_pct: float | None = None
+
+    # Activity
+    adherence_steps: int | None = None
+
+    # Physiology / trend
+    weight_7d_avg: float | None = None
+    waist_change_7d: float | None = None
+
+    @classmethod
+    def from_domain(cls, domain_obj: DailyKPIsOutput) -> "DailyKPIsResponse":
+        return cls(
+            date=domain_obj.date,
+            kcal_out_total=domain_obj.kcal_out_total,
+            balance_kcal=domain_obj.balance_kcal,
+            balance_7d_average=domain_obj.balance_7d_average,
+            protein_per_kg=domain_obj.protein_per_kg,
+            healthy_food_pct=domain_obj.healthy_food_pct,
+            adherence_steps=domain_obj.adherence_steps,
+            weight_7d_avg=domain_obj.weight_7d_avg,
+            waist_change_7d=domain_obj.waist_change_7d,
+        )
