@@ -25,14 +25,13 @@ def get_kpis(
     db: Session = Depends(get_db_session) # this is the injected SQLAlchemy Session
     ):
     
-    #1 ) Build repository
+    #1 ) Build repository (DI)
     repo = Postgres_OutputRepository(db_session = db)
     
     #2) Build use case
     use_case = GetKPIs(output_repo = repo)
     
-    #3) Execute use case
-    
+    #3) Execute use case    
     try:
         domain_rows = use_case.execute(start = start_date, end = end_date)
     except ValueError as e:

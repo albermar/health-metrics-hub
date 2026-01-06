@@ -14,8 +14,6 @@ class DailyMetricsInput:
     stress_rel: int  # 1-10 scale
     weight_kg: float
     waist_cm: float
-
-
 '''
 keep in mind that a domain entity has to:
 1. store values
@@ -47,3 +45,13 @@ class DailyKPIsOutput:
     # Physiology / trend
     weight_7d_avg: Optional[float] = None
     waist_change_7d: Optional[float] = None
+
+@dataclass
+class IngestReport:
+    file_id: str
+    status: str
+    message: str
+    processed_at: datetime
+    records_processed: int
+    kpi_records_upserted: int
+    

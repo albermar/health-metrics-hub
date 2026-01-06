@@ -62,6 +62,19 @@ class InputFileStorage_Interface(ABC):
             raise NotImplementedError
         
 
+#-----------------------------------------------------------------------------------------
+#------------------------------------PARSER INTERFACE-------------------------------------
+#-----------------------------------------------------------------------------------------
+
+class CSVParser_Interface(ABC):
+    '''
+    Port for parsing CSV files into DailyMetricsInput entities.
+    '''
+    @abstractmethod
+    def parse(self, file_bytes: bytes) -> list[DailyMetricsInput]:
+        raise NotImplementedError
+    
+
 """
 Why use bytes:
     Uploaded files arrive as raw bytes. Storage layers should operate on binary
