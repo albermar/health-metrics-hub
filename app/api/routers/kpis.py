@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query
 from datetime import datetime
 from app.api.schemas import DailyKPIsResponse
 from fastapi import HTTPException
-from app.infrastructure.db.repository_implementations import Postgres_OutputRepository
+from app.infrastructure.db.repository_impl import Postgres_OutputRepository
 from app.infrastructure.db.engine import get_db_session
 
 from sqlalchemy.orm import Session

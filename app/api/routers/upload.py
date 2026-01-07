@@ -3,7 +3,7 @@ from app.api.routers import kpis
 from app.infrastructure.db.engine import get_db_session
 from sqlalchemy.orm import Session
 from fastapi import Depends
-from app.infrastructure.db.repository_implementations import Postgres_InputRepository, Postgres_OutputRepository
+from app.infrastructure.db.repository_impl import Postgres_InputRepository, Postgres_OutputRepository
 from app.infrastructure.storage import LocalFileStorage
 
 from app.business.use_cases import IngestDailyCSV

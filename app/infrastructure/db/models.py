@@ -53,8 +53,8 @@ class DailyKPIORM(Base):
 
     __table_args__ = (
         UniqueConstraint("day", name="uq_daily_kpis_day"),
-    )
-    
+    )   
+
 
 class DailyInputORM(Base):
     
