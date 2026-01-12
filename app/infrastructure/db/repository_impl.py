@@ -1,12 +1,12 @@
-from __future__ import annotations
+from app.domain.interfaces import OutputRepository_Interface, InputRepository_Interface
+from app.domain.entities import DailyKPIsOutput, DailyMetricsInput
+from app.infrastructure.db.models import DailyKPIORM, DailyInputORM
 
+from __future__ import annotations
 from datetime import datetime, timezone, time
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.domain.entities import DailyKPIsOutput, DailyMetricsInput
-from app.domain.interfaces import OutputRepository_Interface, InputRepository_Interface
-from app.infrastructure.db.models import DailyKPIORM, DailyInputORM
 
 
 """
@@ -19,14 +19,13 @@ Key idea:
 """
 
 
-class Postgres_OutputRepository(OutputRepository_Interface):
+class DI_Postgres_OutputRepository(OutputRepository_Interface):
     """
     PostgreSQL implementation of OutputRepository_Interface.
 
     The router (API layer) is the "composition root":
         Router -> Build DB session -> Build Repo(session) -> Build Use Case(repo) -> Execute use case
     """
-    
     def __init__(self, db_session: Session):
         self._db = db_session #Injected SQLAlchemy session
 
@@ -134,9 +133,10 @@ class Postgres_OutputRepository(OutputRepository_Interface):
         return domain_entities
 
 
-class Postgres_InputRepository(InputRepository_Interface):
+class DI_Postgres_InputRepository(InputRepository_Interface):
     def __init__(self, db_session: Session):
         self._db = db_session
+
     def save_input(self, input_data: list[DailyMetricsInput]) -> None :
         try:            
             for input_record in input_data:
@@ -175,6 +175,7 @@ class Postgres_InputRepository(InputRepository_Interface):
         except Exception:
             self._db.rollback()
             raise
+
     def get_input(self, start: datetime, end: datetime) -> list[DailyMetricsInput]:
         """
         Read input rows in the date range [start, end], ordered by date.
@@ -217,5 +218,4 @@ class Postgres_InputRepository(InputRepository_Interface):
             )
 
         return domain_entities
-            
-            
+       

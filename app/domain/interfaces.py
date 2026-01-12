@@ -10,6 +10,7 @@ from abc import ABC, abstractmethod #-> Compile-time protection. Prevents instan
 #-----------------------------------------------------------------------------------------
 #----------------------------------REPOSITORY INTERFACES----------------------------------
 #-----------------------------------------------------------------------------------------
+
 class InputRepository_Interface(ABC):
         """
         Port for saving -> and fetching <- DailyMetricsInput entities.
@@ -21,7 +22,7 @@ class InputRepository_Interface(ABC):
         @abstractmethod
         def get_input(self, start: datetime, end: datetime) -> list[DailyMetricsInput]:
             raise NotImplementedError
-    
+
 
 class OutputRepository_Interface(ABC):
         """
@@ -40,7 +41,7 @@ class OutputRepository_Interface(ABC):
 #------------------------------------STORAGE INTERFACE------------------------------------
 #-----------------------------------------------------------------------------------------
 
-class InputFileStorage_Interface(ABC):
+class FileStorage_Interface(ABC):
         """
         Port for handling CSV files uploaded through the API.
         Note: this port must be storage-agnostic (local, S3, etc.)
@@ -60,7 +61,7 @@ class InputFileStorage_Interface(ABC):
         @abstractmethod
         def move_csv_to_unprocessable(self, file_id: str):
             raise NotImplementedError
-        
+
 
 #-----------------------------------------------------------------------------------------
 #------------------------------------PARSER INTERFACE-------------------------------------
@@ -73,7 +74,7 @@ class CSVParser_Interface(ABC):
     @abstractmethod
     def parse(self, file_bytes: bytes) -> list[DailyMetricsInput]:
         raise NotImplementedError
-    
+
 
 """
 Why use bytes:
