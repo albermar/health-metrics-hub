@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File
 from app.infrastructure.db.engine import get_db_session
 from sqlalchemy.orm import Session
 from fastapi import Depends
+from app.infrastructure.db.models import DailyKPIORM, DailyInputORM
 from app.infrastructure.db.repository_impl import DI_Postgres_InputRepository, DI_Postgres_OutputRepository
 from app.infrastructure.parser.parser_impls import DI_CsvParserV1
 
@@ -22,7 +23,15 @@ TODO:
 
 @router.post("/upload-csv", response_model=IngestReportResponse)
 async def upload_daily_csv(file: UploadFile = File(...), db: Session = Depends(get_db_session)):
-
+    
+    '''
+    # ⚠️ DEV ONLY: wipe all previous KPIs
+    db.query(DailyKPIORM).delete()
+    db.query(DailyInputORM).delete()
+    db.commit()
+    '''
+    
+    
     #Process the UploadFile (Extract bytes and filename)
     file_bytes = await file.read() 
     filename = file.filename or "upload.csv"
@@ -39,7 +48,7 @@ async def upload_daily_csv(file: UploadFile = File(...), db: Session = Depends(g
     
     #Build the use case:
     use_case = IngestDailyCSV(input_repo = input_repo, 
-                              output_repo = output_repo,
+                              output_repo = output_repo, 
                               file_storage = file_storage, 
                               parser = parser)
     

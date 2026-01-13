@@ -147,8 +147,7 @@ class IngestDailyCSV:
                 processed_at=processed_at,
                 records_processed=len(records),
                 kpi_records_upserted=len(kpis),
-            )
-            
+            )    
         except Exception as e:
             # Best effort: mark file as unprocessable if we managed to save it
             if file_id is not None:
@@ -166,6 +165,6 @@ class IngestDailyCSV:
                 records_processed=len(records),
                 kpi_records_upserted=len(kpis),
             )
-       
+
             
   

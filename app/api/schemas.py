@@ -3,6 +3,8 @@ from datetime import datetime
 
 from app.domain.entities import DailyKPIsOutput
 
+from app.domain.entities import IngestReport
+
 
 class DailyKPIsResponse(BaseModel):
     
@@ -37,23 +39,24 @@ class DailyKPIsResponse(BaseModel):
             weight_7d_avg=domain_obj.weight_7d_avg,
             waist_change_7d=domain_obj.waist_change_7d,
         )
-    
-    
+
+
 class IngestReportResponse(BaseModel):
     file_id: str
     status: str
     message: str
     processed_at: datetime
     records_processed: int
-    kpi_records_upserted: int    
+    kpi_records_upserted: int
+
     @classmethod
-    def from_domain(cls, domain_obj: "IngestReport") -> "IngestReportResponse":
+    def from_domain(cls, domain_obj: IngestReport) -> "IngestReportResponse":
         return cls(
             file_id=domain_obj.file_id,
             status=domain_obj.status,
             message=domain_obj.message,
             processed_at=domain_obj.processed_at,
             records_processed=domain_obj.records_processed,
-            records_failed=domain_obj.records_failed,
+            kpi_records_upserted=domain_obj.kpi_records_upserted,
         )
     

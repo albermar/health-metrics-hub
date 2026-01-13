@@ -2,7 +2,7 @@ from fastapi import APIRouter, Query
 from datetime import datetime
 from app.api.schemas import DailyKPIsResponse
 from fastapi import HTTPException
-from app.infrastructure.db.repository_impl import Postgres_OutputRepository
+from app.infrastructure.db.repository_impl import DI_Postgres_OutputRepository
 from app.infrastructure.db.engine import get_db_session
 
 from sqlalchemy.orm import Session
@@ -26,7 +26,7 @@ def get_kpis(
     ):
     
     #1 ) Build repository (DI)
-    repo = Postgres_OutputRepository(db_session = db)
+    repo = DI_Postgres_OutputRepository(db_session = db)
     
     #2) Build use case
     use_case = GetKPIs(output_repo = repo)

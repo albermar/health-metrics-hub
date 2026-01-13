@@ -1,8 +1,8 @@
+from __future__ import annotations
 from app.domain.interfaces import OutputRepository_Interface, InputRepository_Interface
 from app.domain.entities import DailyKPIsOutput, DailyMetricsInput
 from app.infrastructure.db.models import DailyKPIORM, DailyInputORM
 
-from __future__ import annotations
 from datetime import datetime, timezone, time
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -46,13 +46,13 @@ class DI_Postgres_OutputRepository(OutputRepository_Interface):
                 day_to_check = kpi.date.date()
 
                 # 1) Check if a row for this day already exists
-                stmt = select(DailyKPIORM).where(DailyKPIORM.day == day_to_check)
+                stmt = select(DailyKPIORM).where(DailyKPIORM.date == day_to_check)
                 existing_row = self._db.execute(stmt).scalar_one_or_none()
 
                 if existing_row is None:
                     # 2a) INSERT: create a new ORM instance and add it to the session
                     new_row = DailyKPIORM(
-                        day=day_to_check,
+                        date=day_to_check,
 
                         # Reduced KPI set (8)
                         kcal_out_total=kpi.kcal_out_total,
@@ -102,8 +102,8 @@ class DI_Postgres_OutputRepository(OutputRepository_Interface):
         # 1) Query ORM rows in range
         stmt = (
             select(DailyKPIORM)
-            .where(DailyKPIORM.day >= start.date(), DailyKPIORM.day <= end.date())
-            .order_by(DailyKPIORM.day.asc())
+            .where(DailyKPIORM.date >= start.date(), DailyKPIORM.date <= end.date())
+            .order_by(DailyKPIORM.date.asc())
         )
         orm_rows = self._db.execute(stmt).scalars().all()
         # scalars(): return ORM objects directly (not full result tuples)
@@ -116,7 +116,7 @@ class DI_Postgres_OutputRepository(OutputRepository_Interface):
             domain_entities.append(
                 DailyKPIsOutput(
                     # ORM stores date (no time). Convert to a timezone-aware datetime.
-                    date=datetime.combine(row.day, time.min, tzinfo=timezone.utc),
+                    date=datetime.combine(row.date, time.min, tzinfo=timezone.utc),
 
                     # Reduced KPI set (8)
                     kcal_out_total=row.kcal_out_total,
@@ -148,6 +148,7 @@ class DI_Postgres_InputRepository(InputRepository_Interface):
                 if existing_row is None:
                     new_row = DailyInputORM(
                         date = date_to_check,
+                        
                         steps_n = input_record.steps_n,
                         proteins_g = input_record.proteins_g,
                         kcal_in = input_record.kcal_in,
@@ -173,7 +174,7 @@ class DI_Postgres_InputRepository(InputRepository_Interface):
             #after upserting all records, commit once
             self._db.commit()
         except Exception:
-            self._db.rollback()
+            self._db.rollback() 
             raise
 
     def get_input(self, start: datetime, end: datetime) -> list[DailyMetricsInput]:
@@ -191,7 +192,7 @@ class DI_Postgres_InputRepository(InputRepository_Interface):
         # 1) Query ORM rows in range (inclusive)
         stmt = (
             select(DailyInputORM)
-            .where(DailyInputORM.date >= start.date(), DailyInputORM.date <= end.date())
+            .where(DailyInputORM.date >= start, DailyInputORM.date <= end)
             .order_by(DailyInputORM.date.asc())
         )
         orm_rows = self._db.execute(stmt).scalars().all()
@@ -204,7 +205,7 @@ class DI_Postgres_InputRepository(InputRepository_Interface):
                 DailyMetricsInput(
                     # ORM stores a DATE. Convert to timezone-aware datetime at midnight UTC.
                     date=datetime.combine(row.date, time.min, tzinfo=timezone.utc),
-
+                     
                     steps_n=row.steps_n,
                     proteins_g=row.proteins_g,
                     kcal_in=row.kcal_in,

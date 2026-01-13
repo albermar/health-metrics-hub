@@ -27,7 +27,7 @@ class DailyKPIORM(Base):
     __tablename__ = "daily_kpis"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    day: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
 
     # Energy / core
     kcal_out_total: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -52,7 +52,7 @@ class DailyKPIORM(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("day", name="uq_daily_kpis_day"),
+        UniqueConstraint("date", name="uq_daily_kpis_date"),
     )   
 
 
@@ -61,20 +61,23 @@ class DailyInputORM(Base):
     __tablename__ = "daily_inputs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    day: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    steps: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    calories_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    calories_out: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    steps_n: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    proteins_g: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    kcal_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    kcal_junk_in: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    kcal_out_training: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+        
+    stress_rel: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     sleep_hours: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-
+    
+    weight_kg: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     waist_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    chest_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    abdomen_cm: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("day", name="uq_daily_inputs_day"),
+        UniqueConstraint("date", name="uq_daily_inputs_date"),
     )
