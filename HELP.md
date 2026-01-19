@@ -18,3 +18,4 @@ uvicorn app.api.main:app --reload
     - same but using SQLAlchemy Core (Not ORM) in drill 03
     - same but using SQLAlchemy ORM models DeclarativeBase etc, write using objects and read
 - Code the Repository implementations (classes inherited from ports)
+- Design the POST endpoint top-down. Endpoint, use case, implementations, helpers. Wiring first.
