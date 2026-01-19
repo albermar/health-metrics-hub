@@ -13,7 +13,6 @@ WHY THIS FILE EXISTS:
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
-from app.api.routers import kpis
 from app.business.kpi_calculator import compute_daily_kpis
 from app.domain.entities import DailyKPIsOutput, DailyMetricsInput, IngestReport, DailyMetricsInput
 
@@ -95,6 +94,8 @@ class IngestDailyCSV:
     file_storage: FileStorage_Interface
     parser: CSVParser_Interface
     
+    steps_goal: int = 10000  #default target steps for KPI calculation
+    
     def execute(self, file_bytes: bytes, filename: str) -> IngestReport:
         """
         Ingest a daily metrics CSV file:
@@ -119,6 +120,18 @@ class IngestDailyCSV:
             # 2. Parse CSV
             records = self.parser.parse(file_bytes=file_bytes)
             
+            if not records:
+                # If the CSV has only headers or no usable rows, treat as unprocessable
+                self.file_storage.move_csv_to_unprocessable(file_id)
+                return IngestReport(
+                    file_id=file_id,
+                    status="unprocessable",
+                    message="No records found in CSV.",
+                    processed_at=processed_at,
+                    records_processed=0,
+                    kpi_records_upserted=0,
+                )
+            
             # 3. Save inputs
             self.input_repo.save_input(input_data=records)
             
@@ -131,7 +144,7 @@ class IngestDailyCSV:
             context_records = self.input_repo.get_input(start=context_start, end=upload_end)
 
             # Compute KPIs only for upload range, using context for rolling stats
-            kpis = compute_daily_kpis(context_records, start=upload_start, end=upload_end, target_steps=10000)
+            kpis = compute_daily_kpis(context_records, start=upload_start, end=upload_end, target_steps=self.steps_goal)
             
             # 5. Save outputs
             if kpis:

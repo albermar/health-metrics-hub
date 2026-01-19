@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from fastapi import APIRouter, UploadFile, File
 from app.infrastructure.db.engine import get_db_session
 from sqlalchemy.orm import Session
@@ -14,23 +17,9 @@ from app.api.schemas import IngestReportResponse
 
 router = APIRouter()
 
-'''
-TODO:
-- Implement execute() method in IngestDailyCSV use case
-- Implement save_input() and get_input() methods in Postgres_InputRepository
-
-'''
 
 @router.post("/upload-csv", response_model=IngestReportResponse)
-async def upload_daily_csv(file: UploadFile = File(...), db: Session = Depends(get_db_session)):
-    
-    '''
-    # ⚠️ DEV ONLY: wipe all previous KPIs
-    db.query(DailyKPIORM).delete()
-    db.query(DailyInputORM).delete()
-    db.commit()
-    '''
-    
+async def upload_daily_csv(file: UploadFile = File(...), db: Session = Depends(get_db_session)):   
     
     #Process the UploadFile (Extract bytes and filename)
     file_bytes = await file.read() 
@@ -47,10 +36,15 @@ async def upload_daily_csv(file: UploadFile = File(...), db: Session = Depends(g
     parser = DI_CsvParserV1()
     
     #Build the use case:
+    profile_path = Path("app/config/user_profile.json")
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))    
+    steps_goal = int(profile.get("steps_goal", 10_000))
+    
     use_case = IngestDailyCSV(input_repo = input_repo, 
                               output_repo = output_repo, 
                               file_storage = file_storage, 
-                              parser = parser)
+                              parser = parser,
+                              steps_goal = steps_goal)
     
     #Execute the use case
     report = use_case.execute(file_bytes = file_bytes, filename = filename)
