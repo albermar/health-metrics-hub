@@ -2,6 +2,9 @@ from fastapi import FastAPI
 #from fastapi import APIRouter
 from app.api.routers import kpis, upload
 
+from dotenv import load_dotenv
+load_dotenv()
+
 
 app = FastAPI(title="Health Metrics Hub API", version="1.0.0", debug=True)
 
