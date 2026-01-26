@@ -1,3 +1,10 @@
+'''
+Deprecated: use Alembic migrations instead.
+Simple smoketest script to create DB tables.
+'''
+
+
+
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.engine import engine 
 

@@ -1,5 +1,8 @@
+import os
 from app.infrastructure.db.base import Base
-from app.infrastructure.db import models  # noqa: F401
+from app.infrastructure.db import models # Registers ORM tabls
+
+from app.infrastructure.db.engine import get_database_url
 
 from logging.config import fileConfig
 
@@ -60,11 +63,16 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    database_url = get_database_url() # get the DATABASE_URL from my own engine module
+    if not database_url:
+        raise RuntimeError("DATABASE_URL environment variable is not set")
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        {"sqlalchemy.url": database_url},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    
 
     with connectable.connect() as connection:
         context.configure(

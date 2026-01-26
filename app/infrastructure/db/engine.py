@@ -15,6 +15,15 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+def get_database_url() -> str:
+    """
+    Single source of truth for DB URL.
+
+    Priority:
+    1) DATABASE_URL (cloud platforms like Render)
+    2) POSTGRES_* parts (local dev / docker-compose)
+    """
+    return os.getenv("DATABASE_URL") or _build_database_url()
 
 def _build_database_url() -> str:
     """
@@ -34,7 +43,7 @@ def _build_database_url() -> str:
     return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
 
 
-DATABASE_URL: str = _build_database_url()
+DATABASE_URL: str = get_database_url()
 
 # Long-lived engine (connection pool manager)
 engine = create_engine(
