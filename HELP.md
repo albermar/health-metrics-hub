@@ -3,6 +3,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 venv\Scripts\activate
 .\.venv\Scripts\activate
 uvicorn app.api.main:app --reload
+streamlit run app/dashboard/streamlit_app.py
 
 # Bitacora
 - Define the architecture
