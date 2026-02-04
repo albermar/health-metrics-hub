@@ -94,7 +94,7 @@ def compute_daily_kpis(
         weight_7d_avg = (sum(weights) / len(weights)) if weights else None
 
         waist_change_7d: Optional[float] = None
-        waist_today = waist_by_day.get(d)        
+        waist_today = waist_by_day.get(d)
         waist_7ago = waist_by_day.get(d - timedelta(days=7))
         
         if waist_today is not None and waist_7ago is not None:

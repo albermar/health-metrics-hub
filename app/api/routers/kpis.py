@@ -16,17 +16,23 @@ from app.business.use_cases import GetKPIs
 
 router = APIRouter()
 
+# Dependency provider for the repo:
+def get_output_repo(db: Session = Depends(get_db_session)) -> DI_Postgres_OutputRepository:
+    return DI_Postgres_OutputRepository(db_session=db)
+
+
+
 #Get endpoint to retrieve KPIs for a given date range
 
 @router.get("/kpis/", response_model = list[DailyKPIsResponse])
 def get_kpis(
     start_date: datetime = Query(..., description = "Start date in YYYY-MM-DD format"),
     end_date:   datetime = Query(..., description = "End date in YYYY-MM-DD format"), 
-    db: Session = Depends(get_db_session) # this is the injected SQLAlchemy Session
+    repo: DI_Postgres_OutputRepository = Depends(get_output_repo),
     ):
     
     #1 ) Build repository (DI)
-    repo = DI_Postgres_OutputRepository(db_session = db)
+    # OBSOLETE: repo = DI_Postgres_OutputRepository(db_session = db)
     
     #2) Build use case
     use_case = GetKPIs(output_repo = repo)

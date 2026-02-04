@@ -99,17 +99,17 @@ class IngestDailyCSV:
     def execute(self, file_bytes: bytes, filename: str) -> IngestReport:
         """
         Ingest a daily metrics CSV file:
-        - Save the uploaded file using the file storage port.
-        - Parse the CSV and create DailyMetricsInput entities.
-        - Save inputs using the input repository port.
-        - Compute KPIs and save them using the output repository port.
-        - Move the file to processed or unprocessable based on success/failure of all steps.
-        - Return an IngestReport entity summarizing the operation.
+        - Save the uploaded file using the file storage port
+        - Parse the CSV and create DailyMetricsInput entities
+        - Save inputs using the input repository port
+        - Compute KPIs and save them using the output repository port
+        - Move the file to processed or unprocessable based on success/failure of all steps
+        - Return an IngestReport entity summarizing the operation
         """
-        processed_at = datetime.now(timezone.utc) 
+        processed_at = datetime.now(timezone.utc)
         safe_filename = filename or "upload.csv"
         
-        file_id: str | None = None 
+        file_id: str | None = None
         records: list[DailyMetricsInput] = []
         kpis: list[DailyKPIsOutput] = []
         
