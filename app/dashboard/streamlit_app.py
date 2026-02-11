@@ -107,11 +107,19 @@ def main():
         st.caption("API base URL")
         st.code(api_base_url)
 
-        today = date.today()
-        default_start = today - timedelta(days=30)
 
+
+
+        # Default analysis window
+        default_start = date(2024, 1, 1)
+        default_end = date(2026, 2, 1)
+
+        # Optional: prevent choosing an end date in the future
+        today = date.today()
         start = st.date_input("Start date", value=default_start)
         end = st.date_input("End date", value=today)
+
+
 
         if start > end:
             st.error("Start date must be before end date.")

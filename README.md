@@ -338,6 +338,9 @@ health-metrics-hub/
 ├── samples/
 │   └── sample_data.csv
 │
+├── docs/
+│   └── dashboard_kpis.jpg
+│
 └── tests/
     ├── unit/
     │   └── test_kpi_calculator.py
