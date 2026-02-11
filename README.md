@@ -8,6 +8,36 @@ The system ingests daily health and fitness data via CSV, computes derived KPIs 
 
 ![Health Metrics Hub Dashboard](docs/dashboard_kpis.jpg)
 
+## Live Deployment
+
+Streamlit (Cloud) → FastAPI (Render) → PostgreSQL (Render)
+
+### Frontend Dashboard (Streamlit)
+
+Deployed on Streamlit Community Cloud
+
+**Live App:** 
+https://health-metrics-app-225nupjakux8gwyzw6uvgt.streamlit.app/
+
+The Streamlit dashboard consumes the production FastAPI backend and visualizes computed health KPIs derived from ingested CSV data.
+
+### Backend API
+
+Deployed on Render
+
+**Base URL:** https://health-metrics-hub.onrender.com/
+
+**Swagger Documentation:** https://health-metrics-hub.onrender.com/docs
+
+The backend exposes two REST endpoints:
+
+- POST `/api/upload-csv`  
+  Uploads a CSV file, parses and validates the data, computes KPIs, and persists both raw inputs and computed outputs into PostgreSQL.
+
+- GET `/api/kpis/`  
+  Retrieves persisted KPI data with optional date-range filtering.
+
+
 ## 📑 Table of Contents
 
 - [Project Motivation](#project-motivation)
