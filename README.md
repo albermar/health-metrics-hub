@@ -8,6 +8,22 @@ The system ingests daily health and fitness data via CSV, computes derived KPIs 
 
 ![Health Metrics Hub Dashboard](docs/dashboard_kpis.jpg)
 
+
+## Table of Contents
+
+- [Live Deployment](#live-deployment)
+- [Project Motivation](#project-motivation)
+- [System Architecture](#system-architecture)
+- [Design Decisions & Tradeoffs](#design-decisions--tradeoffs)
+- [Key Features](#key-features)
+- [Tech Stack](#tech-stack)
+- [Architecture Overview](#architecture-overview)
+- [API Endpoints](#api-endpoints)
+- [Testing Strategy](#testing-strategy)
+- [Project Structure](#project-structure)
+- [Running Locally](#running-locally)
+
+
 ## Live Deployment
 
 Streamlit (Cloud) → FastAPI (Render) → PostgreSQL (Render)
@@ -36,20 +52,6 @@ The backend exposes two REST endpoints:
 
 - GET `/api/kpis/`  
   Retrieves persisted KPI data with optional date-range filtering.
-
-
-## 📑 Table of Contents
-
-- [Project Motivation](#project-motivation)
-- [System Architecture](#system-architecture)
-- [Design Decisions & Tradeoffs](#design-decisions--tradeoffs)
-- [Key Features](#key-features)
-- [Tech Stack](#tech-stack)
-- [Architecture Overview](#architecture-overview)
-- [API Endpoints](#api-endpoints)
-- [Testing Strategy](#testing-strategy)
-- [Project Structure](#project-structure)
-- [Running Locally](#running-locally)
 
 
 ## Project Motivation
