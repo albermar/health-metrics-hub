@@ -1,81 +1,156 @@
-# System for analyzing health habits and physical performance.
+# Health Metrics Hub — Backend System
 
-Using daily metrics (steps, calories in/out, weight, measurements, and sleep), the system computes fitness KPIs, trends, and adherence metrics, and displays them in a dashboard
+Health Metrics Hub is a portfolio-grade backend analytics system designed to demonstrate clean architecture, idempotent ingestion pipelines, rolling KPI computation, and API-first backend design.
 
-- *Backend*: it will receive data (via CSV), process it, compute KPIs using pandas, store it persistently in a PostgreSQL database, and expose endpoints for data retrieval.
-- *Visual dashboard*: it will display metrics, KPIs, and time-series insights through a clear and interactive interface, enabling users to visualize the evolution of their performance and health habits.
+Built with FastAPI, PostgreSQL, SQLAlchemy 2.0, and Alembic.
 
-- Backend built with FastAPI, following Clean Architecture (domain, business, infra, api, interfaces, etc.)
-- POST endpoint to upload a CSV with fitness metrics (steps, kcal, weight, sleep, etc.)
-- ETL and KPI computation (deficit, adherence, trends, rolling averages, and any additional meaningful indicators)
-- Persistent storage in PostgreSQL using SQLAlchemy (ORM/models) and Alembic (schema migrations/changes)
-- Docker + docker-compose to run the backend and PostgreSQL as connected services
-- Backend deployed on Render, with environment variables for the API key and database connection
-- Dashboard built with Streamlit, deployed on Hugging Face Spaces, consuming the public API hosted on Render
+![Health Metrics Hub Dashboard](docs/dashboard_kpis.jpg)
 
-## Clean Architecture
+The system ingests daily health and fitness data via CSV, computes derived KPIs and trends, stores both inputs and outputs persistently, and exposes a clean API for analytics and visualization.
 
-### Domain
+## 📑 Table of Contents
 
-Defines what the system does (not how).
+- [Project Motivation](#project-motivation)
+- [System Architecture](#system-architecture)
+- [Design Decisions & Tradeoffs](#design-decisions--tradeoffs)
+- [Key Features](#key-features)
+- [Tech Stack](#tech-stack)
+- [Architecture Overview](#architecture-overview)
+- [API Endpoints](#api-endpoints)
+- [Testing Strategy](#testing-strategy)
+- [Project Structure](#project-structure)
+- [Running Locally](#running-locally)
 
-* Core business entities: DailyInput, DailyKPI
-* Interfaces
-    * Ports Repository: DailyMetricsRepository, DailyKPIRepository
-    * Ports File storage: InputFileStorage 
 
-### Business
+## Project Motivation
 
-Implements the application workflows and KPI logic
-Depends on *Domain* and it's abstract references, not on concrete DB or file system
+Health Metrics Hub was built to simulate a real-world backend analytics system rather than a simple CRUD application.
 
-- Use cases and services
-    - upload_csv
-    - get_kpis (for a given date range)
-- ETL logic
-    - CSV --> DataFrame --> List[DailyInput]
-    - computationKPI --> List[DailyKPI]
-- Some rules
-    - How to handle duplicated date rows
-    - How to handle missing values, rolling windows, etc.
+It mirrors production systems such as fitness tracking platforms, SaaS KPI dashboards, and telemetry backends.
 
-### Infrastructure
+The goal of the project is to demonstrate:
 
-This is where the app talks to the outside world: PostgreSQL, filesystem, etc.
+- Clean separation of business logic from infrastructure
+- Rolling window KPI computations
+- Idempotent ingestion workflows
+- API-first backend design
+- Testable, framework-independent domain logic
 
-- Database setup & models
-    - SQLAlchemy models
-    - DB engine and session management
-- Repository implementations (adapters):
-    - PostgresDailyMetricsRepository → implements DailyMetricsRepository
-    - PostgresDailyKpiRepository → implements DailyKpiRepository
-- File storage implementations:
-    - LocalInputFileStorage implementing InputFileStorage
-        - save raw uploads into input_files/
-        - move processed files to input_files/processed/
-        - move invalid files to input_files/unprocessable/
-- Migrations (alembic)
+## System Architecture
 
-### API layer
+```
+                        ┌──────────────────────┐
+                        │     Streamlit UI     │
+                        │   (Read-only client) │
+                        └────────────▲─────────┘
+                                     │ HTTP
+                        ┌────────────┴─────────┐
+                        │       FastAPI        │
+                        │   (API layer)        │
+                        └────────────▲─────────┘
+                                     │
+                        ┌────────────┴─────────┐
+                        │      Use Cases       │
+                        │  (Application logic) │
+                        └────────────▲─────────┘
+                                     │
+                        ┌────────────┴─────────┐
+                        │       Domain         │
+                        │  Entities + Rules    │
+                        └────────────▲─────────┘
+                                     │
+                        ┌────────────┴─────────┐
+                        │   Infrastructure     │
+                        │ PostgreSQL + ORM     │
+                        │ CSV Parser           │
+                        └──────────────────────┘
 
-Turns http requests into calls to use cases and return DataTransferObject (DTOs) as JSON
 
-- FastAPI application main.py
-- Schemas: pydantic for input / output
-- Routers & Endpoints
-    - POST /upload_csv (receives CSV, checks Authentication KEY, calls use case upload_csv)
-    - GET /kpis (sends KPIs for a given date range)
+```
 
+**Data flow:**
+```
+CSV → Parser → Ingestion Use Case → Repository → PostgreSQL
+                                             ↓
+                                     KPI Computation
+                                             ↓
+                                         FastAPI
+                                             ↓
+                                        Streamlit
+```
+
+## Design Decisions & Tradeoffs
+
+This section outlines the main architectural decisions and why they were made.
+
+### 1. Clean Architecture instead of a simple CRUD structure
+
+Rather than placing business logic inside FastAPI routes or SQLAlchemy models, the project isolates:
+
+- Domain (pure entities and rules)
+- Use cases (application workflows)
+- Infrastructure (DB, parser, storage)
+- Delivery layer (FastAPI, Streamlit)
+
+**Why?**
+- Business logic becomes testable without framework dependencies
+- Repositories can be swapped (e.g., PostgreSQL → another DB)
+- The API layer remains thin and declarative
+
+Tradeoff: Slightly more boilerplate and indirection.
 
 ---
 
+### 2. Idempotent CSV Ingestion
 
+Re-uploading the same CSV overwrites records for matching dates.
 
-# Health Metrics Hub — Backend System
+**Why?**
+- Real-world ingestion pipelines must handle replays and corrections
+- Prevents duplicate records
+- Simplifies data maintenance
 
-Health Metrics Hub is a backend system that ingests daily health and fitness data via CSV, computes derived KPIs and trends, stores them persistently (both inputs and KPIs), and exposes a clean API for analytics and visualization.
+Tradeoff: Slightly more complex repository logic (upsert instead of insert).
 
-The project focuses on data ingestion, domain-driven business logic, and backend architecture, handling real-world concerns such as missing data, rolling windows, and idempotent updates. It is designed as a portfolio-grade backend project rather than a UI-centric application.
+---
+
+### 3. Rolling KPI Computation in Application Layer
+
+Rolling averages and trends are computed in Python rather than SQL.
+
+**Why?**
+- Keeps business rules independent of a specific database
+- Makes KPI logic fully unit-testable
+- Easier to evolve formulas
+
+Tradeoff: Slightly less efficient for very large datasets.
+
+---
+
+### 4. PostgreSQL + SQLAlchemy ORM
+
+SQLAlchemy 2.0 ORM was chosen over raw SQL or Core.
+
+**Why?**
+- Clear mapping between domain entities and persistence layer
+- Better maintainability
+- Aligns with common backend production stacks
+
+Tradeoff: Slight abstraction overhead compared to raw SQL.
+
+---
+
+### 5. Streamlit as Read-Only Client
+
+The dashboard consumes the API instead of querying the database directly.
+
+**Why?**
+- Demonstrates API-first design
+- Enforces separation between backend and client
+- Mimics real-world frontend/backend architecture
+
+Tradeoff: Slight additional HTTP overhead locally.
+
 
 ## Key Features
 - CSV ingestion of daily health and fitness metrics
@@ -105,6 +180,8 @@ The project focuses on data ingestion, domain-driven business logic, and backend
 ## Architecture Overview
 
 The project follows Clean Architecture, keeping business logic independent from frameworks, databases, and delivery mechanisms.
+
+FastAPI routes are thin controllers delegating to application use cases via dependency injection.
 
 **Domain**
 
@@ -142,7 +219,7 @@ Streamlit dashboard consuming the API
 
 Read-only client with no business logic
 
-## Api endpoints
+## API Endpoints
 
 ### Upload daily metrics (CSV)
 ```
@@ -165,6 +242,112 @@ Returns computed KPIs for the specified date range
 Includes rolling averages and trend metrics
 
 Missing days are handled internally by the computation logic
+
+### Example API Response
+
+```json
+[
+  {
+    "date": "2026-01-01",
+    "weight_7d_avg": 82.14,
+    "balance_kcal": -320,
+    "balance_7d_average": -250,
+    "protein_per_kg": 1.85,
+    "healthy_food_pct": 87.5,
+    "adherence_steps": 1
+  },
+  {
+    "date": "2026-01-02",
+    "weight_7d_avg": 82.05,
+    "balance_kcal": -150,
+    "balance_7d_average": -240,
+    "protein_per_kg": 1.92,
+    "healthy_food_pct": 90.0,
+    "adherence_steps": 0
+  }
+]
+```
+
+## Testing Strategy
+
+The project is designed for testability via Clean Architecture:
+
+Unit tests validate KPI computations (rolling averages, adherence logic, trend metrics).
+
+Use case tests run with fake/in-memory repository implementations to test workflows without FastAPI or PostgreSQL.
+
+API tests use FastAPI TestClient to validate request/response behavior end-to-end.
+
+This ensures business logic is fully testable in isolation, while still covering integration at the API layer.
+
+
+## Project Structure
+```
+health-metrics-hub/
+├── .env.example
+├── .gitignore
+├── alembic.ini
+├── LICENSE.txt
+├── README.md
+├── requirements.txt
+│
+├── alembic/
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+│       └── a5f3bf693c80_initial_schema.py
+│
+├── app/
+│   ├── api/
+│   │   ├── main.py
+│   │   ├── schemas.py
+│   │   └── routers/
+│   │       ├── kpis.py
+│   │       └── upload.py
+│   │
+│   ├── business/
+│   │   ├── kpi_calculator.py
+│   │   └── use_cases.py
+│   │
+│   ├── config/
+│   │   └── user_profile.json
+│   │
+│   ├── dashboard/
+│   │   └── streamlit_app.py
+│   │
+│   ├── domain/
+│   │   ├── entities.py
+│   │   └── interfaces.py
+│   │
+│   └── infrastructure/
+│       ├── db/
+│       │   ├── base.py
+│       │   ├── engine.py
+│       │   ├── models.py
+│       │   ├── repository_impl.py
+│       │   └── local_postgres_up/
+│       │       ├── .env.example
+│       │       └── docker-compose.yml
+│       │
+│       ├── parser/
+│       │   └── parser_impls.py
+│       │
+│       └── storage/
+│           └── storage_impl.py
+│
+├── samples/
+│   └── sample_data.csv
+│
+└── tests/
+    ├── unit/
+    │   └── test_kpi_calculator.py
+    │
+    └── use_cases/
+        ├── test_fastapi.py
+        ├── test_get_kpis.py
+        └── test_ingest_daily_csv.py
+
+```
 
 ## Running Locally
 
@@ -262,8 +445,7 @@ A sample CSV file is provided in sample_data/.
 From the repository root:
 
 ```curl
-curl -X POST http://localhost:8000/api/upload-csv \
-  -F "file=@sample_data/sample_metrics.csv"
+curl.exe -X POST http://localhost:8000/api/upload-csv -F "file=@samples/sample_data.csv"
 ```
 
 This uploads the file from your local machine to the API for processing.
@@ -274,4 +456,3 @@ streamlit run app/dashboard/streamlit_app.py
 ```
 
 The dashboard consumes the API and displays computed KPIs.
-
