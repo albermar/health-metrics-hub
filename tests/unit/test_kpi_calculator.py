@@ -351,4 +351,3 @@ def test_compute_daily_kpis_waist_change_7d():
     kpi_day8 = result[-1]
 
     assert kpi_day8.waist_change_7d == -2.0
-
