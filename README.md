@@ -4,9 +4,9 @@ Health Metrics Hub is a portfolio-grade backend analytics system designed to dem
 
 Built with FastAPI, PostgreSQL, SQLAlchemy 2.0, and Alembic.
 
-![Health Metrics Hub Dashboard](docs/dashboard_kpis.jpg)
-
 The system ingests daily health and fitness data via CSV, computes derived KPIs and trends, stores both inputs and outputs persistently, and exposes a clean API for analytics and visualization.
+
+![Health Metrics Hub Dashboard](docs/dashboard_kpis.jpg)
 
 ## 📑 Table of Contents
 
