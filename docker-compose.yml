@@ -2,8 +2,8 @@ version: "3.9"
 services:
   api:
     build:
-      context: ..
-      dockerfile: vps_mount/Dockerfile.api
+      context: .
+      dockerfile: Dockerfile.api
     container_name: project2_api
     env_file:
       - .env
@@ -13,8 +13,8 @@ services:
 
   streamlit:
     build:
-      context: ..
-      dockerfile: vps_mount/Dockerfile.streamlit
+      context: .
+      dockerfile: Dockerfile.streamlit
     container_name: project2_streamlit
     env_file:
       - .env
