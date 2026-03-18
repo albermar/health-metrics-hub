@@ -15,6 +15,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from dotenv import load_dotenv
+load_dotenv()
+
 def get_database_url() -> str:
     """
     Single source of truth for DB URL.

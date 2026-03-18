@@ -16,14 +16,16 @@ from app.business.use_cases import GetKPIs
 
 router = APIRouter()
 
-# Dependency provider for the repo:
+# Dependency provider for the repo. This function will be called by FastAPI to get an instance of the repository for each request. It uses the get_db_session dependency to get a database session and then creates an instance of DI_Postgres_OutputRepository with that session.
 def get_output_repo(db: Session = Depends(get_db_session)) -> DI_Postgres_OutputRepository:
     return DI_Postgres_OutputRepository(db_session=db)
 
 
 
 #Get endpoint to retrieve KPIs for a given date range
-
+'''
+Keep in mind that, if this endpoint is called is beacause the client wants to fetch kpis, so it's obvious that we'll need to query those kpis from a repo, so we anticipated it and passed the outputRepo as a parameter and we laid the groundwork
+'''
 @router.get("/kpis/", response_model = list[DailyKPIsResponse])
 def get_kpis(
     start_date: datetime = Query(..., description = "Start date in YYYY-MM-DD format"),
@@ -34,7 +36,7 @@ def get_kpis(
     #1 ) Build repository (DI)
     # OBSOLETE: repo = DI_Postgres_OutputRepository(db_session = db)
     
-    #2) Build use case
+    #2) Build use case. The use case has different categories of elements, a repo to read, a start date, end date, etc. We can pass those parameters in the constructor or in the execute method, depending on how we want to design it. In this case, we pass the repo in the constructor and the dates in the execute method, but we could also pass everything in the execute method if we wanted to.
     use_case = GetKPIs(output_repo = repo)
     
     #3) Execute use case    

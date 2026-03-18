@@ -25,7 +25,7 @@ async def upload_daily_csv(file: UploadFile = File(...), db: Session = Depends(g
     file_bytes = await file.read() 
     filename = file.filename or "upload.csv"
     
-    #create the 2 repositories (DI)
+    #create the 2 repositories (DI). In this case we create the repos inside the function instead of using a dependency provider just for playing and learning, but we could also create dependency providers for them like we did in the kpis.py router and then use Depends to get them as parameters in the function. That would be more consistent with the rest of the codebase and would allow us to reuse the repos in other endpoints if needed.
     input_repo = DI_Postgres_InputRepository(db_session = db)
     output_repo = DI_Postgres_OutputRepository(db_session = db)
     
