@@ -35,12 +35,20 @@ def upload_csv(api_base_url: str, file_name: str, file_bytes: bytes):
     url = f"{api_base_url}/api/upload-csv"
     files = {"file": (file_name, file_bytes, "text/csv")}
     r = httpx.post(url, files=files, timeout=60.0)
-    r.raise_for_status()
 
     try:
-        return r.json()
+        payload = r.json()
     except Exception:
-        return {"status_code": r.status_code, "raw_response": r.text}
+        payload = {"status_code": r.status_code, "raw_response": r.text}
+
+    if r.is_success:
+        return payload
+
+    return {
+        "http_status_code": r.status_code,
+        "error": True,
+        "response": payload,
+    }
 
 
 def count_missing_days(df_dates: pd.Series) -> int:
@@ -131,32 +139,50 @@ def compute_delta(df_plot: pd.DataFrame, col: str, rows_back: int = 7):
 
 
 def render_upload_result(result: object):
-    st.subheader("Ingestion result")
+    st.subheader("Upload response")
 
-    if isinstance(result, dict):
-        primitive_items = {
-            k: v for k, v in result.items()
-            if isinstance(v, (str, int, float, bool)) or v is None
-        }
-
-        if primitive_items:
-            cols = st.columns(min(4, max(1, len(primitive_items))))
-            for i, (k, v) in enumerate(primitive_items.items()):
-                cols[i % len(cols)].metric(
-                    k.replace("_", " ").title(),
-                    str(v) if v is not None else "—"
-                )
-
-        nested_items = {
-            k: v for k, v in result.items()
-            if isinstance(v, (list, dict))
-        }
-
-        if nested_items:
-            st.markdown("**Full response**")
-            st.json(result)
-    else:
+    if not isinstance(result, dict):
         st.json(result)
+        return
+
+    response_payload = result.get("response", result)
+    if not isinstance(response_payload, dict):
+        st.json(response_payload)
+        return
+
+    status = str(response_payload.get("status", "")).lower()
+    message = str(response_payload.get("message", "")).strip()
+
+    is_error = bool(result.get("error")) or status in {
+        "unprocessable",
+        "error",
+        "failed",
+        "invalid",
+    }
+
+    if is_error:
+        st.error(message or "Upload was received, but the API reported a processing error.")
+        if message:
+            st.code(message, language="text")
+    else:
+        st.success(message or "Upload processed successfully.")
+
+    summary_fields = [
+        ("Status", response_payload.get("status")),
+        ("Records processed", response_payload.get("records_processed")),
+        ("KPI records upserted", response_payload.get("kpi_records_upserted")),
+        ("Processed at", response_payload.get("processed_at")),
+    ]
+
+    cols = st.columns(4)
+    for i, (label, value) in enumerate(summary_fields):
+        cols[i].metric(label, "—" if value is None else str(value))
+
+    if response_payload.get("file_id"):
+        st.caption(f"File ID: {response_payload['file_id']}")
+
+    st.markdown("**Full API response**")
+    st.json(response_payload)
 
 
 def try_render_sample_csv_download():
@@ -181,7 +207,7 @@ def try_render_sample_csv_download():
     st.caption("Sample CSV not found locally in this deployment.")
 
 
-def render_info_tab(api_base_url: str):
+def render_info_view(api_base_url: str):
     left, right = st.columns(2)
 
     with left:
@@ -191,10 +217,10 @@ def render_info_tab(api_base_url: str):
             This app lets you test the full health analytics workflow from ingestion to visualization.
 
             **How to use it:**
-            - Go to **Upload CSV**
+            - Open **Upload CSV**
             - Upload a daily health metrics CSV
-            - The backend validates, persists, and computes KPIs
-            - Go to **Dashboard** to inspect the resulting KPI charts
+            - Read the API response carefully
+            - Open **Dashboard** to inspect the resulting KPI charts
 
             The dashboard is a client of the API, not a direct database reader.
             """
@@ -218,7 +244,6 @@ def render_info_tab(api_base_url: str):
             ```
             """
         )
-
         st.markdown(
             """
             - API-first architecture  
@@ -292,14 +317,42 @@ def render_dataset_summary(df: pd.DataFrame, requested_start: date, requested_en
     )
 
 
-def render_dashboard_tab(
-    df: pd.DataFrame,
-    df_plot: pd.DataFrame,
-    numeric_cols: list[str],
-    requested_start: date,
-    requested_end: date,
+def render_dashboard_view(
+    api_base_url: str,
+    start: date,
+    end: date,
+    show_debug_timings: bool,
 ):
-    render_dataset_summary(df, requested_start, requested_end)
+    t_fetch_start = time.perf_counter()
+    try:
+        data = fetch_kpis(api_base_url, start, end)
+    except httpx.HTTPError as e:
+        st.error("Could not fetch KPIs from the API.")
+        st.write("Details:", str(e))
+        return
+
+    fetch_seconds = time.perf_counter() - t_fetch_start
+
+    if not data:
+        st.info("No KPI data available for the selected date range.")
+        return
+
+    try:
+        t_prepare_start = time.perf_counter()
+        df = build_dataframe_cached(data)
+        df_plot, numeric_cols = prepare_plot_df_cached(df)
+        prepare_seconds = time.perf_counter() - t_prepare_start
+    except ValueError as e:
+        st.error(str(e))
+        return
+
+    if show_debug_timings:
+        c1, c2 = st.columns(2)
+        c1.metric("Fetch KPIs", f"{fetch_seconds:.3f}s")
+        c2.metric("Prepare DataFrame", f"{prepare_seconds:.3f}s")
+        st.divider()
+
+    render_dataset_summary(df, start, end)
     st.divider()
     render_latest_snapshot(df, df_plot)
     st.divider()
@@ -319,12 +372,16 @@ def render_dashboard_tab(
             st.line_chart(df_plot[[kpi]], width="stretch")
 
 
-def render_upload_tab(api_base_url: str):
+def render_upload_view(api_base_url: str):
     st.subheader("Upload CSV")
     st.write(
         "Use this page to test the ingestion pipeline directly from the UI. "
         "The file is sent to the backend upload endpoint."
     )
+
+    if st.session_state.get("last_upload_result") is not None:
+        render_upload_result(st.session_state["last_upload_result"])
+        st.divider()
 
     try_render_sample_csv_download()
 
@@ -334,7 +391,7 @@ def render_upload_tab(api_base_url: str):
             - Select a CSV file
             - Send it to the backend
             - Backend parses, validates, persists, and computes KPIs
-            - The dashboard refreshes automatically after a successful upload
+            - Read the response here before checking the dashboard or DB
             """
         )
 
@@ -353,36 +410,23 @@ def render_upload_tab(api_base_url: str):
 
         if st.button("Upload and process CSV", type="primary", width="stretch"):
             with st.spinner("Uploading file and waiting for the API response..."):
-                try:
-                    result = upload_csv(api_base_url, uploaded_file.name, file_bytes)
+                result = upload_csv(api_base_url, uploaded_file.name, file_bytes)
+                st.session_state["last_upload_result"] = result
+                st.session_state["selected_view"] = "Upload CSV"
 
-                    st.success("Data successfully ingested and KPIs recomputed.")
-                    render_upload_result(result)
+                fetch_kpis.clear()
+                build_dataframe_cached.clear()
+                prepare_plot_df_cached.clear()
 
-                    st.session_state["upload_success_message"] = (
-                        f"Latest upload processed successfully: {uploaded_file.name}"
-                    )
-                    st.session_state["reload_after_upload"] = True
-                    st.session_state["active_tab"] = "upload"
-                    st.rerun()
-
-                except httpx.HTTPStatusError as e:
-                    st.error(f"Upload failed with status {e.response.status_code}.")
-                    try:
-                        st.json(e.response.json())
-                    except Exception:
-                        st.code(e.response.text)
-                except httpx.HTTPError as e:
-                    st.error("Could not connect to the upload endpoint.")
-                    st.write("Details:", str(e))
+                st.rerun()
 
 
-def inject_tabs_css():
+def inject_nav_css():
     st.markdown(
         """
         <style>
-        button[data-baseweb="tab"] > div[data-testid="stMarkdownContainer"] p {
-            font-size: 1.08rem !important;
+        div[data-testid="stSegmentedControl"] button p {
+            font-size: 1.05rem !important;
             font-weight: 700 !important;
         }
         </style>
@@ -391,50 +435,20 @@ def inject_tabs_css():
     )
 
 
-def render_tabs(active_tab: str, api_base_url: str, df=None, df_plot=None, numeric_cols=None, start=None, end=None):
-    if active_tab == "upload":
-        tab_order = ["Upload CSV", "Dashboard", "Info"]
-    else:
-        tab_order = ["Info", "Dashboard", "Upload CSV"]
-
-    tab1, tab2, tab3 = st.tabs(tab_order)
-
-    for tab_name, tab in zip(tab_order, [tab1, tab2, tab3]):
-        with tab:
-            if tab_name == "Dashboard":
-                if df is None or df_plot is None or numeric_cols is None:
-                    st.warning("Dashboard unavailable until KPI data can be fetched.")
-                else:
-                    render_dashboard_tab(df, df_plot, numeric_cols, start, end)
-
-            elif tab_name == "Info":
-                render_info_tab(api_base_url)
-
-            elif tab_name == "Upload CSV":
-                render_upload_tab(api_base_url)
-
-
 def main():
     st.set_page_config(page_title="Health Metrics Hub", layout="wide")
     st.title("Health Metrics Hub")
     st.caption("Portfolio analytics demo: CSV ingestion → persisted KPIs → interactive dashboard")
 
-    inject_tabs_css()
+    inject_nav_css()
 
     api_base_url = get_api_base_url()
 
-    if "reload_after_upload" not in st.session_state:
-        st.session_state["reload_after_upload"] = False
+    if "last_upload_result" not in st.session_state:
+        st.session_state["last_upload_result"] = None
 
-    if "upload_success_message" not in st.session_state:
-        st.session_state["upload_success_message"] = None
-
-    if "active_tab" not in st.session_state:
-        st.session_state["active_tab"] = "dashboard"
-
-    if st.session_state.get("reload_after_upload"):
-        st.cache_data.clear()
-        st.session_state["reload_after_upload"] = False
+    if "selected_view" not in st.session_state:
+        st.session_state["selected_view"] = "Info"
 
     with st.sidebar:
         st.header("Settings")
@@ -451,67 +465,36 @@ def main():
             st.error("Start date must be before end date.")
             st.stop()
 
-        reload_btn = st.button("Reload data", width="stretch")
+        if st.button("Reload data", width="stretch"):
+            fetch_kpis.clear()
+            build_dataframe_cached.clear()
+            prepare_plot_df_cached.clear()
+
         show_debug_timings = st.checkbox("Show debug timings", value=False)
 
-        st.divider()
-        st.caption("Tip")
-        st.write("Upload a CSV in the Upload CSV tab. Data refreshes automatically after success.")
+    st.divider()
 
-    if reload_btn:
-        st.cache_data.clear()
-        st.session_state["active_tab"] = "dashboard"
-
-    if st.session_state.get("upload_success_message"):
-        st.success(st.session_state["upload_success_message"])
-        st.session_state["upload_success_message"] = None
-
-    t_fetch_start = time.perf_counter()
-    try:
-        data = fetch_kpis(api_base_url, start, end)
-    except httpx.HTTPError as e:
-        st.error("Could not fetch KPIs from the API.")
-        st.write("Details:", str(e))
-        render_tabs(
-            active_tab=st.session_state.get("active_tab", "dashboard"),
-            api_base_url=api_base_url,
-        )
-        return
-
-    fetch_seconds = time.perf_counter() - t_fetch_start
-
-    if not data:
-        st.info("No KPI data available for the selected date range.")
-        render_tabs(
-            active_tab=st.session_state.get("active_tab", "dashboard"),
-            api_base_url=api_base_url,
-        )
-        return
-
-    try:
-        t_prepare_start = time.perf_counter()
-        df = build_dataframe_cached(data)
-        df_plot, numeric_cols = prepare_plot_df_cached(df)
-        prepare_seconds = time.perf_counter() - t_prepare_start
-    except ValueError as e:
-        st.error(str(e))
-        return
-
-    if show_debug_timings:
-        c1, c2 = st.columns(2)
-        c1.metric("Fetch KPIs", f"{fetch_seconds:.3f}s")
-        c2.metric("Prepare DataFrame", f"{prepare_seconds:.3f}s")
-        st.divider()
-
-    render_tabs(
-        active_tab=st.session_state.get("active_tab", "dashboard"),
-        api_base_url=api_base_url,
-        df=df,
-        df_plot=df_plot,
-        numeric_cols=numeric_cols,
-        start=start,
-        end=end,
+    selected = st.segmented_control(
+        "Navigation",
+        options=["Info", "Dashboard", "Upload CSV"],
+        default=st.session_state["selected_view"],
+        selection_mode="single",
     )
+    st.session_state["selected_view"] = selected
+
+    st.divider()
+
+    if selected == "Info":
+        render_info_view(api_base_url)
+    elif selected == "Dashboard":
+        render_dashboard_view(
+            api_base_url=api_base_url,
+            start=start,
+            end=end,
+            show_debug_timings=show_debug_timings,
+        )
+    elif selected == "Upload CSV":
+        render_upload_view(api_base_url)
 
 
 if __name__ == "__main__":
