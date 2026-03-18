@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import date
 from pathlib import Path
 
@@ -6,8 +7,6 @@ import httpx
 import pandas as pd
 import streamlit as st
 
-
-# ---------------- CONFIG / DISPLAY ----------------
 
 KPI_META: dict[str, dict[str, object]] = {
     "weight_7d_avg": {"label": "Weight (7d avg)", "unit": "kg", "fmt": "{:.2f}"},
@@ -18,8 +17,6 @@ KPI_META: dict[str, dict[str, object]] = {
     "adherence_steps": {"label": "Steps met", "unit": "", "fmt": "{}"},
 }
 
-
-# ---------------- API HELPERS ----------------
 
 def get_api_base_url() -> str:
     return os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
@@ -46,7 +43,42 @@ def upload_csv(api_base_url: str, file_name: str, file_bytes: bytes):
         return {"status_code": r.status_code, "raw_response": r.text}
 
 
-# ---------------- UI HELPERS ----------------
+def count_missing_days(df_dates: pd.Series) -> int:
+    if df_dates.empty:
+        return 0
+    dmin = min(df_dates)
+    dmax = max(df_dates)
+    full = pd.date_range(dmin, dmax, freq="D").date
+    present = set(df_dates)
+    return sum(1 for d in full if d not in present)
+
+
+@st.cache_data(ttl=30)
+def build_dataframe_cached(data: list[dict]) -> pd.DataFrame:
+    df = pd.DataFrame(data)
+
+    if "date" not in df.columns:
+        raise ValueError("API response has no 'date' field.")
+
+    df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce").dt.date
+    df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
+
+    if df.empty:
+        raise ValueError("All records had invalid dates.")
+
+    return df
+
+
+@st.cache_data(ttl=30)
+def prepare_plot_df_cached(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    df_plot = df.copy()
+    for col in df_plot.columns:
+        if col != "date":
+            df_plot[col] = pd.to_numeric(df_plot[col], errors="coerce")
+    df_plot = df_plot.set_index("date")
+    numeric_cols = df_plot.select_dtypes(include="number").columns.tolist()
+    return df_plot, numeric_cols
+
 
 def prettify_kpi_name(col: str) -> str:
     meta = KPI_META.get(col)
@@ -98,41 +130,6 @@ def compute_delta(df_plot: pd.DataFrame, col: str, rows_back: int = 7):
         return None
 
 
-def count_missing_days(df_dates: pd.Series) -> int:
-    if df_dates.empty:
-        return 0
-    dmin = min(df_dates)
-    dmax = max(df_dates)
-    full = pd.date_range(dmin, dmax, freq="D").date
-    present = set(df_dates)
-    return sum(1 for d in full if d not in present)
-
-
-def build_dataframe(data: list[dict]) -> pd.DataFrame:
-    df = pd.DataFrame(data)
-
-    if "date" not in df.columns:
-        raise ValueError("API response has no 'date' field.")
-
-    df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce").dt.date
-    df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
-
-    if df.empty:
-        raise ValueError("All records had invalid dates.")
-
-    return df
-
-
-def prepare_plot_df(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    df_plot = df.copy()
-    for col in df_plot.columns:
-        if col != "date":
-            df_plot[col] = pd.to_numeric(df_plot[col], errors="coerce")
-    df_plot = df_plot.set_index("date")
-    numeric_cols = df_plot.select_dtypes(include="number").columns.tolist()
-    return df_plot, numeric_cols
-
-
 def render_upload_result(result: object):
     st.subheader("Ingestion result")
 
@@ -162,28 +159,6 @@ def render_upload_result(result: object):
         st.json(result)
 
 
-def render_pipeline_overview(api_base_url: str):
-    st.markdown(
-        """
-        ### What this app demonstrates
-
-        This demo shows an end-to-end analytics pipeline:
-
-        1. Upload a daily health metrics CSV  
-        2. Backend validates and persists the input  
-        3. KPI calculations run server-side  
-        4. Streamlit fetches persisted KPIs from the API and visualizes them
-
-        The dashboard is a client of the API, not a direct database reader.
-        """
-    )
-    st.info(
-        f"API base URL: {api_base_url}\n\n"
-        f"Upload endpoint: {api_base_url}/api/upload-csv\n\n"
-        f"KPI endpoint: {api_base_url}/api/kpis/"
-    )
-
-
 def try_render_sample_csv_download():
     possible_paths = [
         Path("samples/sample_data.csv"),
@@ -199,29 +174,59 @@ def try_render_sample_csv_download():
                 data=data,
                 file_name="sample_data.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
             )
             return
 
     st.caption("Sample CSV not found locally in this deployment.")
 
 
-def render_dataset_status(df: pd.DataFrame, requested_start: date, requested_end: date):
-    total_records = len(df)
-    dataset_min = df["date"].min()
-    dataset_max = df["date"].max()
-    missing_days = count_missing_days(df["date"])
-    total_kpis = max(0, len(df.columns) - 1)
+def render_info_tab(api_base_url: str):
+    left, right = st.columns(2)
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total records", total_records)
-    col2.metric("Dataset range", f"{dataset_min} → {dataset_max}")
-    col3.metric("Missing days", missing_days)
-    col4.metric("KPI columns", total_kpis)
+    with left:
+        st.subheader("How to use this app")
+        st.markdown(
+            """
+            This app lets you test the full health analytics workflow from ingestion to visualization.
 
-    st.caption(
-        f"Current query window: {requested_start.isoformat()} → {requested_end.isoformat()}"
-    )
+            **How to use it:**
+            - Go to **Upload CSV**
+            - Upload a daily health metrics CSV
+            - The backend validates, persists, and computes KPIs
+            - Go to **Dashboard** to inspect the resulting KPI charts
+
+            The dashboard is a client of the API, not a direct database reader.
+            """
+        )
+        st.caption(f"Swagger: {api_base_url}/docs")
+
+    with right:
+        st.subheader("Architecture")
+        st.markdown(
+            """
+            ```text
+            CSV file
+               ↓
+            Streamlit upload UI
+               ↓
+            FastAPI backend
+               ↓
+            Validation + persistence + KPI computation
+               ↓
+            Streamlit dashboard
+            ```
+            """
+        )
+
+        st.markdown(
+            """
+            - API-first architecture  
+            - KPI computation stays in the backend  
+            - Frontend acts as a thin client  
+            - Same backend powers both Swagger and Streamlit
+            """
+        )
 
 
 def render_latest_snapshot(df: pd.DataFrame, df_plot: pd.DataFrame):
@@ -267,39 +272,58 @@ def render_latest_snapshot(df: pd.DataFrame, df_plot: pd.DataFrame):
     )
 
 
-def render_overview_tab(df: pd.DataFrame, df_plot: pd.DataFrame, numeric_cols: list[str], requested_start: date, requested_end: date):
-    render_dataset_status(df, requested_start, requested_end)
+def render_dataset_summary(df: pd.DataFrame, requested_start: date, requested_end: date):
+    total_records = len(df)
+    dataset_min = df["date"].min()
+    dataset_max = df["date"].max()
+    missing_days = count_missing_days(df["date"])
+    total_kpis = max(0, len(df.columns) - 1)
+
+    st.subheader("Dataset summary")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total records", total_records)
+    c2.metric("Dataset range", f"{dataset_min} → {dataset_max}")
+    c3.metric("Missing days", missing_days)
+    c4.metric("KPI columns", total_kpis)
+
+    st.caption(
+        f"Query window: {requested_start.isoformat()} → {requested_end.isoformat()}"
+    )
+
+
+def render_dashboard_tab(
+    df: pd.DataFrame,
+    df_plot: pd.DataFrame,
+    numeric_cols: list[str],
+    requested_start: date,
+    requested_end: date,
+):
+    render_dataset_summary(df, requested_start, requested_end)
     st.divider()
     render_latest_snapshot(df, df_plot)
     st.divider()
 
-    st.subheader("Main trends")
+    st.caption("Dashboard data reflects the latest successfully ingested CSV data.")
 
-    preferred = [
-        "weight_7d_avg",
-        "balance_7d_average",
-        "protein_per_kg",
-        "healthy_food_pct",
-    ]
-    overview_cols = [c for c in preferred if c in numeric_cols]
-
-    if overview_cols:
-        st.line_chart(df_plot[overview_cols], use_container_width=True)
-    elif numeric_cols:
-        st.line_chart(df_plot[numeric_cols[:4]], use_container_width=True)
-    else:
+    if not numeric_cols:
         st.warning("No numeric KPI columns to plot.")
+        return
 
-    st.divider()
-    st.subheader("Latest records")
-    st.dataframe(df.tail(10), use_container_width=True)
+    charts_per_row = st.select_slider("Charts per row", options=[2, 3, 4], value=3)
+    cols = st.columns(charts_per_row)
+
+    for i, kpi in enumerate(numeric_cols):
+        with cols[i % charts_per_row]:
+            st.caption(prettify_kpi_name(kpi))
+            st.line_chart(df_plot[[kpi]], width="stretch")
 
 
 def render_upload_tab(api_base_url: str):
-    st.subheader("Upload CSV to the API")
+    st.subheader("Upload CSV")
     st.write(
         "Use this page to test the ingestion pipeline directly from the UI. "
-        "The file is sent to the existing backend upload endpoint."
+        "The file is sent to the backend upload endpoint."
     )
 
     try_render_sample_csv_download()
@@ -308,7 +332,7 @@ def render_upload_tab(api_base_url: str):
         st.markdown(
             """
             - Select a CSV file
-            - Send it to `POST /api/upload-csv`
+            - Send it to the backend
             - Backend parses, validates, persists, and computes KPIs
             - The dashboard refreshes automatically after a successful upload
             """
@@ -327,29 +351,19 @@ def render_upload_tab(api_base_url: str):
         with st.expander("Preview file content", expanded=False):
             st.code(preview_text or "(empty preview)", language="text")
 
-        if st.button("Upload and process CSV", type="primary", use_container_width=True):
+        if st.button("Upload and process CSV", type="primary", width="stretch"):
             with st.spinner("Uploading file and waiting for the API response..."):
                 try:
                     result = upload_csv(api_base_url, uploaded_file.name, file_bytes)
 
                     st.success("Data successfully ingested and KPIs recomputed.")
-                    st.info(
-                        """
-Your CSV has been:
-- validated
-- persisted in PostgreSQL
-- used to recompute KPIs
-
-Refreshing data automatically...
-                        """
-                    )
-
                     render_upload_result(result)
 
                     st.session_state["upload_success_message"] = (
                         f"Latest upload processed successfully: {uploaded_file.name}"
                     )
                     st.session_state["reload_after_upload"] = True
+                    st.session_state["active_tab"] = "upload"
                     st.rerun()
 
                 except httpx.HTTPStatusError as e:
@@ -363,109 +377,49 @@ Refreshing data automatically...
                     st.write("Details:", str(e))
 
 
-def render_dashboard_tab(df: pd.DataFrame, df_plot: pd.DataFrame, numeric_cols: list[str], requested_start: date, requested_end: date):
-    st.subheader("Export data")
-
-    csv_data = df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="Download KPIs as CSV",
-        data=csv_data,
-        file_name=f"kpis_{requested_start.isoformat()}_{requested_end.isoformat()}.csv",
-        mime="text/csv",
-    )
-
-    st.divider()
-    st.caption("Dashboard data reflects the latest successfully ingested CSV data.")
-
-    st.subheader("All KPI charts")
-
-    if not numeric_cols:
-        st.warning("No numeric KPI columns to plot.")
-    else:
-        charts_per_row = st.select_slider("Charts per row", options=[2, 3, 4], value=3)
-        cols = st.columns(charts_per_row)
-
-        for i, kpi in enumerate(numeric_cols):
-            with cols[i % charts_per_row]:
-                st.caption(prettify_kpi_name(kpi))
-                st.line_chart(df_plot[[kpi]], use_container_width=True)
-
-    st.divider()
-
-    st.subheader("Trends (choose KPIs)")
-
-    if not numeric_cols:
-        st.warning("No numeric KPI columns to plot.")
-    else:
-        default_cols = [
-            c for c in [
-                "weight_7d_avg",
-                "balance_7d_average",
-                "protein_per_kg",
-                "healthy_food_pct",
-            ]
-            if c in numeric_cols
-        ]
-
-        selected = st.multiselect(
-            "Select KPIs to plot",
-            options=numeric_cols,
-            default=default_cols if default_cols else numeric_cols[:6],
-        )
-
-        if selected:
-            st.line_chart(df_plot[selected], use_container_width=True)
-        else:
-            st.info("Select at least one KPI to plot.")
-
-    st.divider()
-    st.subheader("KPIs (table)")
-    st.dataframe(df, use_container_width=True)
-
-
-def render_architecture_tab(api_base_url: str):
-    st.subheader("Architecture")
+def inject_tabs_css():
     st.markdown(
         """
-        ```text
-        CSV file
-           ↓
-        Streamlit upload UI
-           ↓
-        FastAPI POST /api/upload-csv
-           ↓
-        Validation + persistence + KPI computation
-           ↓
-        FastAPI GET /api/kpis/
-           ↓
-        Streamlit dashboard
-        ```
-        """
+        <style>
+        button[data-baseweb="tab"] > div[data-testid="stMarkdownContainer"] p {
+            font-size: 1.08rem !important;
+            font-weight: 700 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.markdown(
-        """
-        ### Why this demo is useful
 
-        - It shows an API-first architecture
-        - KPI computation stays in the backend
-        - The frontend acts as a thin client
-        - The same API can serve both Swagger and Streamlit
-        """
-    )
+def render_tabs(active_tab: str, api_base_url: str, df=None, df_plot=None, numeric_cols=None, start=None, end=None):
+    if active_tab == "upload":
+        tab_order = ["Upload CSV", "Dashboard", "Info"]
+    else:
+        tab_order = ["Info", "Dashboard", "Upload CSV"]
 
-    st.markdown("### Useful links")
-    st.code(f"{api_base_url}/docs")
-    st.code(f"{api_base_url}/api/upload-csv")
-    st.code(f"{api_base_url}/api/kpis/")
+    tab1, tab2, tab3 = st.tabs(tab_order)
 
+    for tab_name, tab in zip(tab_order, [tab1, tab2, tab3]):
+        with tab:
+            if tab_name == "Dashboard":
+                if df is None or df_plot is None or numeric_cols is None:
+                    st.warning("Dashboard unavailable until KPI data can be fetched.")
+                else:
+                    render_dashboard_tab(df, df_plot, numeric_cols, start, end)
 
-# ---------------- MAIN ----------------
+            elif tab_name == "Info":
+                render_info_tab(api_base_url)
+
+            elif tab_name == "Upload CSV":
+                render_upload_tab(api_base_url)
+
 
 def main():
     st.set_page_config(page_title="Health Metrics Hub", layout="wide")
     st.title("Health Metrics Hub")
     st.caption("Portfolio analytics demo: CSV ingestion → persisted KPIs → interactive dashboard")
+
+    inject_tabs_css()
 
     api_base_url = get_api_base_url()
 
@@ -474,6 +428,9 @@ def main():
 
     if "upload_success_message" not in st.session_state:
         st.session_state["upload_success_message"] = None
+
+    if "active_tab" not in st.session_state:
+        st.session_state["active_tab"] = "dashboard"
 
     if st.session_state.get("reload_after_upload"):
         st.cache_data.clear()
@@ -494,82 +451,67 @@ def main():
             st.error("Start date must be before end date.")
             st.stop()
 
-        reload_btn = st.button("Reload data", use_container_width=True)
+        reload_btn = st.button("Reload data", width="stretch")
+        show_debug_timings = st.checkbox("Show debug timings", value=False)
 
         st.divider()
         st.caption("Tip")
-        st.write("Upload a CSV in the Upload tab. Data refreshes automatically after success.")
+        st.write("Upload a CSV in the Upload CSV tab. Data refreshes automatically after success.")
 
     if reload_btn:
         st.cache_data.clear()
+        st.session_state["active_tab"] = "dashboard"
 
     if st.session_state.get("upload_success_message"):
         st.success(st.session_state["upload_success_message"])
         st.session_state["upload_success_message"] = None
 
-    render_pipeline_overview(api_base_url)
-
+    t_fetch_start = time.perf_counter()
     try:
         data = fetch_kpis(api_base_url, start, end)
     except httpx.HTTPError as e:
         st.error("Could not fetch KPIs from the API.")
         st.write("Details:", str(e))
-
-        tab_overview, tab_upload, tab_dashboard, tab_arch = st.tabs(
-            ["Overview", "Upload CSV", "Dashboard", "Architecture"]
+        render_tabs(
+            active_tab=st.session_state.get("active_tab", "dashboard"),
+            api_base_url=api_base_url,
         )
-
-        with tab_overview:
-            st.warning("Overview unavailable until KPI data can be fetched.")
-
-        with tab_upload:
-            render_upload_tab(api_base_url)
-
-        with tab_dashboard:
-            st.warning("Dashboard unavailable until KPI data can be fetched.")
-
-        with tab_arch:
-            render_architecture_tab(api_base_url)
-
         return
 
-    tab_overview, tab_upload, tab_dashboard, tab_arch = st.tabs(
-        ["Overview", "Upload CSV", "Dashboard", "Architecture"]
-    )
+    fetch_seconds = time.perf_counter() - t_fetch_start
 
     if not data:
-        with tab_overview:
-            st.warning("No KPI records returned for this date range.")
-
-        with tab_upload:
-            render_upload_tab(api_base_url)
-
-        with tab_dashboard:
-            st.info("No KPI data available yet.")
-
-        with tab_arch:
-            render_architecture_tab(api_base_url)
-
+        st.info("No KPI data available for the selected date range.")
+        render_tabs(
+            active_tab=st.session_state.get("active_tab", "dashboard"),
+            api_base_url=api_base_url,
+        )
         return
 
     try:
-        df = build_dataframe(data)
-        df_plot, numeric_cols = prepare_plot_df(df)
+        t_prepare_start = time.perf_counter()
+        df = build_dataframe_cached(data)
+        df_plot, numeric_cols = prepare_plot_df_cached(df)
+        prepare_seconds = time.perf_counter() - t_prepare_start
     except ValueError as e:
         st.error(str(e))
         return
 
-    with tab_overview:
-        render_overview_tab(df, df_plot, numeric_cols, start, end)
+    if show_debug_timings:
+        c1, c2 = st.columns(2)
+        c1.metric("Fetch KPIs", f"{fetch_seconds:.3f}s")
+        c2.metric("Prepare DataFrame", f"{prepare_seconds:.3f}s")
+        st.divider()
 
-    with tab_upload:
-        render_upload_tab(api_base_url)
-
-    with tab_dashboard:
-        render_dashboard_tab(df, df_plot, numeric_cols, start, end)
-
-    with tab_arch:
-        render_architecture_tab(api_base_url)
+    render_tabs(
+        active_tab=st.session_state.get("active_tab", "dashboard"),
+        api_base_url=api_base_url,
+        df=df,
+        df_plot=df_plot,
+        numeric_cols=numeric_cols,
+        start=start,
+        end=end,
+    )
 
 
 if __name__ == "__main__":
