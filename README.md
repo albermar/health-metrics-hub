@@ -25,9 +25,8 @@ It provides a complete end-to-end workflow:
 
 A **Streamlit dashboard** consumes the public API and allows users to explore KPIs and trends interactively.
 
-Live Demo: https://app-health.alberto.network  
-Live API: https://api-health.alberto.network  
-API Docs: https://api-health.alberto.network/docs
+- Demo: https://app-health.alberto.network
+- API Docs: https://api-health.alberto.network/docs
 
 ## Index
 
